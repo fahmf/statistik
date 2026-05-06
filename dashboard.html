@@ -482,6 +482,9 @@
 // ════════════════════════════════════════════
 const { DATA, TAHUN, JENIS_KASUS, PROVINSI_DATA, totalProvinsiTahun, totalNasionalTahun, totalJenisTahun } = window.STATISTIK;
 
+const _charts = {};
+function _destroyChart(id) { if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; } }
+
 let state = {
   tahun: 2024,
   tab: 'overview',
@@ -687,12 +690,13 @@ function renderOverview(ca) {
 function buildBarChart() {
   const canvas = document.getElementById('ch-bar');
   if (!canvas) return;
+  _destroyChart('ch-bar');
   const sorted = [...PROVINSI_DATA]
     .map(p => ({ nama: p.nama.replace('Kep. ', '').replace('Nusa Tenggara', 'NT'), tot: getTotalProv(p.id) }))
     .sort((a,b) => b.tot - a.tot)
     .slice(0, 15);
 
-  new Chart(canvas, {
+  _charts['ch-bar'] = new Chart(canvas, {
     type: 'bar',
     data: {
       labels: sorted.map(d => d.nama),
@@ -787,7 +791,8 @@ function buildSummaryBars() {
 function buildLineOverview() {
   const canvas = document.getElementById('ch-line-overview');
   if (!canvas) return;
-  new Chart(canvas, {
+  _destroyChart('ch-line-overview');
+  _charts['ch-line-overview'] = new Chart(canvas, {
     type: 'line',
     data: {
       labels: TAHUN,
