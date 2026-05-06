@@ -585,6 +585,7 @@ function toggleSidebar() {
   const isOpen = aside.classList.contains('open');
   aside.classList.toggle('open', !isOpen);
   overlay.classList.toggle('visible', !isOpen);
+  document.body.style.overflow = isOpen ? '' : 'hidden';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
