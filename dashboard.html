@@ -480,6 +480,15 @@
 // ════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════
+if (!window.STATISTIK) {
+  document.body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;font-family:'DM Sans',sans-serif;color:#4a5248">
+      <div style="font-size:32px">⚠️</div>
+      <div style="font-size:16px;font-weight:600;color:#1a1f18">Data tidak ditemukan</div>
+      <div style="font-size:13px;text-align:center;max-width:360px">File <code>data.js</code> tidak dapat dimuat. Pastikan file ada di folder yang sama dengan <code>dashboard.html</code> dan buka melalui server lokal atau langsung dari browser.</div>
+    </div>`;
+  throw new Error('window.STATISTIK not defined — data.js failed to load');
+}
 const { DATA, TAHUN, JENIS_KASUS, PROVINSI_DATA, totalProvinsiTahun, totalNasionalTahun, totalJenisTahun } = window.STATISTIK;
 
 const _charts = {};
