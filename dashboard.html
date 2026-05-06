@@ -584,6 +584,15 @@ function fmt(n) {
 function fmtFull(n) { return n?.toLocaleString('id-ID') || '0'; }
 function pct(a, b) { return b ? ((a/b)*100).toFixed(1) + '%' : '—'; }
 
+function matchProv(geoName) {
+  if (!geoName) return null;
+  const n = geoName.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+  return PROVINSI_DATA.find(p => {
+    const pn = p.nama.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+    return n.includes(pn.split(' ')[0]) || pn.includes(n.split(' ')[0]);
+  });
+}
+
 // ════════════════════════════════════════════
 // HEADER STATS
 // ════════════════════════════════════════════
@@ -906,16 +915,6 @@ function renderD3Map(container, geo) {
   const maxVal = d3.max(values);
   mapColorScale = d3.scaleSequential([0, maxVal], SKEMA[state.skema].interpolator());
 
-  // Province name normalization for topojson matching
-  function matchProv(geoName) {
-    if (!geoName) return null;
-    const n = geoName.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-    return PROVINSI_DATA.find(p => {
-      const pn = p.nama.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-      return n.includes(pn.split(' ')[0]) || pn.includes(n.split(' ')[0]);
-    });
-  }
-
   svg.selectAll('path').data(geo.features).join('path')
     .attr('d', path)
     .attr('fill', d => {
@@ -997,21 +996,12 @@ function onSliderPeta(val) {
     mapColorScale = d3.scaleSequential([0, maxVal], SKEMA[state.skema].interpolator());
     // re-color
     mapSvg.selectAll('path').attr('fill', function(d) {
-      const prov = matchProv2(d.properties?.name || d.properties?.NAME || d.properties?.PROVINSI || '');
+      const prov = matchProv(d.properties?.name || d.properties?.NAME || d.properties?.PROVINSI || '');
       if (!prov) return '#e2e5df';
       return mapColorScale(getTotalProv(prov.id));
     });
     buildMapLegend(maxVal);
   }
-}
-
-function matchProv2(geoName) {
-  if (!geoName) return null;
-  const n = geoName.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-  return PROVINSI_DATA.find(p => {
-    const pn = p.nama.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-    return n.includes(pn.split(' ')[0]) || pn.includes(n.split(' ')[0]);
-  });
 }
 
 function togglePlayPeta() {
