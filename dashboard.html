@@ -408,12 +408,12 @@
     .card-header { padding: 12px 14px 10px; }
     .card-body { padding: 12px 14px; }
 
-    .chart-wrap[style*="height:320px"] { height: 220px !important; }
-    .chart-wrap[style*="height:300px"] { height: 200px !important; }
-    .chart-wrap[style*="height:280px"] { height: 200px !important; }
-    .chart-wrap[style*="height:260px"] { height: 180px !important; }
-    .chart-wrap[style*="height:240px"] { height: 180px !important; }
-    .chart-wrap[style*="height:220px"] { height: 160px !important; }
+    .chart-wrap[style*="height:320px"] { height: 280px !important; }
+    .chart-wrap[style*="height:300px"] { height: 260px !important; }
+    .chart-wrap[style*="height:280px"] { height: 240px !important; }
+    .chart-wrap[style*="height:260px"] { height: 230px !important; }
+    .chart-wrap[style*="height:240px"] { height: 210px !important; }
+    .chart-wrap[style*="height:220px"] { height: 195px !important; }
 
     .compare-slots { flex-direction: column; }
 
@@ -796,11 +796,12 @@ function buildBarChart() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8, bottom: 8, left: 4, right: 4 } },
       plugins: { legend: { display: false }, tooltip: {
         callbacks: { label: ctx => ' ' + fmtFull(ctx.raw) + ' kasus' }
       }},
       scales: {
-        x: { grid: { display: false }, ticks: { font: { family: 'DM Sans', size: 11 }, color: '#4a5248' } },
+        x: { grid: { display: false }, ticks: { font: { family: 'DM Sans', size: 10 }, color: '#4a5248', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 15 } },
         y: { grid: { color: '#e2e5df' }, ticks: { font: { family: 'DM Mono', size: 10 }, color: '#8a9388', callback: v => fmt(v) } }
       }
     }
@@ -894,6 +895,7 @@ function buildLineOverview() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8, bottom: 8 } },
       plugins: {
         legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 12 } },
         tooltip: { mode: 'index', intersect: false }
@@ -1144,6 +1146,7 @@ function buildTrenChart() {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8, bottom: 8 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 10 } },
@@ -1181,6 +1184,7 @@ function buildIndexChart() {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8, bottom: 8 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 10 } },
@@ -1289,6 +1293,7 @@ function buildStackedChart() {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8, bottom: 8 } },
       plugins: {
         legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 10 } },
         tooltip: { mode: 'index', intersect: false }
@@ -1473,6 +1478,7 @@ function renderDetail(ca) {
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 8, bottom: 8 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 8 } },
