@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konverter Data Excel → data.js</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f8f6; --surface: #fff; --border: #e2e5df;
+    --text: #1a1f18; --text2: #4a5248; --text3: #8a9388;
+    --accent: #10b981; --accent2: #059669; --accent-soft: #d1fae5;
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 32px 24px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: var(--text3); margin-bottom: 32px; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+  .section h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .section p { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 28px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    font-size: 13px; color: var(--text3);
+  }
+  .drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: var(--accent-soft); color: var(--accent2); }
+  .drop-zone.loaded { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent2); }
+  .drop-zone input[type=file] { display: none; }
+  .col-map { display: none; margin-top: 14px; }
+  .col-map.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .col-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .col-row label { width: 130px; color: var(--text2); flex-shrink: 0; }
+  select, button, textarea {
+    font-family: inherit; font-size: 13px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); border-radius: 8px;
+    padding: 6px 10px; outline: none; cursor: pointer; transition: border-color .15s;
+  }
+  select:focus, select:hover { border-color: var(--accent); }
+  .col-row select { flex: 1; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    padding: 8px 20px; font-weight: 600; margin-top: 16px;
+    display: none;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary.visible { display: inline-block; }
+  #output-section { display: none; }
+  #output-section.visible { display: block; }
+  textarea { width: 100%; height: 320px; font-family: 'Consolas', monospace; font-size: 11px; resize: vertical; }
+  .copy-btn { margin-top: 8px; }
+  .status { font-size: 12px; margin-top: 8px; color: var(--accent2); min-height: 18px; }
+  .error { color: #ef4444; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+  th { background: var(--bg); padding: 5px 8px; text-align: left; font-weight: 600; color: var(--text3); border-bottom: 2px solid var(--border); }
+  td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  .preview-wrap { max-height: 180px; overflow-y: auto; margin-top: 8px; font-size: 11px; color: var(--text3); }
+</style>
+</head>
+<body>
+<h1>🔄 Konverter Excel → data.js</h1>
+<p class="sub">Upload file Excel dari BPS atau Badilag, petakan kolom, lalu salin hasilnya ke <code>data.js</code>.</p>
+
+<div class="section" id="sec-provinsi">
+  <h2>File 1 — Data Provinsi (Wajib)</h2>
+  <p>Dari BPS atau rekap Badilag. Harus punya kolom: Provinsi, Tahun, Jenis Kasus, Jumlah.</p>
+  <div class="drop-zone" id="dz-prov" onclick="document.getElementById('fi-prov').click()" ondragover="onDragOver(event,'dz-prov')" ondragleave="onDragLeave('dz-prov')" ondrop="onDrop(event,'prov')">
+    <input type="file" id="fi-prov" accept=".xlsx,.xls,.csv" onchange="onFileSelect(event,'prov')">
+    <div id="dz-prov-lbl">📂 Klik atau seret file .xlsx di sini</div>
+  </div>
+  <div class="preview-wrap" id="preview-prov"></div>
+  <div class="col-map" id="map-prov">
+    <div class="col-row"><label>Kolom "Provinsi"</label><select id="m-prov-provinsi"></select></div>
+    <div class="col-row"><label>Kolom "Tahun"</label><select id="m-prov-tahun"></select></div>
+    <div class="col-row"><label>Kolom "Jenis Kasus"</label><select id="m-prov-jenis"></select></div>
+    <div class="col-row"><label>Kolom "Jumlah"</label><select id="m-prov-jumlah"></select></div>
+  </div>
+</div>
+
+<div class="section" id="sec-kota">
+  <h2>File 2 — Data Satker/Kota (Opsional)</h2>
+  <p>Dari Badilag per satuan kerja. Menambah data kota/kabupaten ke dashboard.</p>
+  <div class="drop-zone" id="dz-kota" onclick="document.getElementById('fi-kota').click()" ondragover="onDragOver(event,'dz-kota')" ondragleave="onDragLeave('dz-kota')" ondrop="onDrop(event,'kota')">
+    <input type="file" id="fi-kota" accept=".xlsx,.xls,.csv" onchange="onFileSelect(event,'kota')">
+    <div id="dz-kota-lbl">📂 Klik atau seret file .xlsx di sini (opsional)</div>
+  </div>
+  <div class="preview-wrap" id="preview-kota"></div>
+  <div class="col-map" id="map-kota">
+    <div class="col-row"><label>Kolom "Satker/Kota"</label><select id="m-kota-satker"></select></div>
+    <div class="col-row"><label>Kolom "Provinsi"</label><select id="m-kota-provinsi"></select></div>
+    <div class="col-row"><label>Kolom "Tahun"</label><select id="m-kota-tahun"></select></div>
+    <div class="col-row"><label>Kolom "Jenis Kasus"</label><select id="m-kota-jenis"></select></div>
+    <div class="col-row"><label>Kolom "Jumlah"</label><select id="m-kota-jumlah"></select></div>
+  </div>
+</div>
+
+<button class="btn-primary" id="btn-generate" onclick="generate()">⚡ Generate data.js</button>
+<div class="status" id="status"></div>
+
+<div class="section" id="output-section">
+  <h2>Output — Salin ke data.js</h2>
+  <p>Salin semua teks di bawah ini, buka file <code>data.js</code> dengan Notepad, hapus isinya, lalu tempel dan simpan.</p>
+  <textarea id="output-area" readonly></textarea>
+  <button class="copy-btn" onclick="copyOutput()">📋 Salin Semua</button>
+  <div class="status" id="copy-status"></div>
+</div>
+
+<script>
+const parsed = { prov: null, kota: null };
+
+const JENIS_MAP = {
+  'cerai gugat': 'cerai_gugat',
+  'gugat': 'cerai_gugat',
+  'cerai talak': 'cerai_talak',
+  'talak': 'cerai_talak',
+  'dispensasi': 'dispensasi_kawin',
+  'dispensasi kawin': 'dispensasi_kawin',
+  'itsbat': 'itsbat_nikah',
+  'isbat': 'itsbat_nikah',
+  'penetapan ahli waris': 'harta_waris',
+  'waris': 'harta_waris',
+  'harta': 'harta_waris',
+  'hak asuh': 'hak_asuh',
+  'hadhanah': 'hak_asuh',
+  'kdrt': 'kdrt',
+  'kekerasan': 'kdrt',
+  'ekonomi syariah': 'ekonomi_syariah',
+  'ekonomi': 'ekonomi_syariah',
+  'syariah': 'ekonomi_syariah',
+};
+
+const JENIS_KASUS_DEFS = [
+  { id: 'cerai_gugat', label: 'Cerai Gugat', warna: '#10b981' },
+  { id: 'cerai_talak', label: 'Cerai Talak', warna: '#3b82f6' },
+  { id: 'dispensasi_kawin', label: 'Dispensasi Kawin', warna: '#f59e0b' },
+  { id: 'itsbat_nikah', label: 'Itsbat Nikah', warna: '#8b5cf6' },
+  { id: 'harta_waris', label: 'Harta Waris', warna: '#ef4444' },
+  { id: 'hak_asuh', label: 'Hak Asuh Anak', warna: '#06b6d4' },
+  { id: 'kdrt', label: 'KDRT', warna: '#f97316' },
+  { id: 'ekonomi_syariah', label: 'Ekonomi Syariah', warna: '#84cc16' },
+];
+
+const PROVINSI_ID_MAP = {
+  'aceh': 'aceh', 'sumatera utara': 'sumut', 'sumut': 'sumut',
+  'sumatera barat': 'sumbar', 'sumbar': 'sumbar',
+  'riau': 'riau', 'jambi': 'jambi',
+  'sumatera selatan': 'sumsel', 'sumsel': 'sumsel',
+  'bengkulu': 'bengkulu', 'lampung': 'lampung',
+  'kepulauan bangka belitung': 'babel', 'bangka belitung': 'babel', 'babel': 'babel',
+  'kepulauan riau': 'kepri', 'kepri': 'kepri',
+  'dki jakarta': 'dki', 'jakarta': 'dki', 'dki': 'dki',
+  'jawa barat': 'jabar', 'jabar': 'jabar',
+  'jawa tengah': 'jateng', 'jateng': 'jateng',
+  'di yogyakarta': 'diy', 'yogyakarta': 'diy', 'diy': 'diy',
+  'jawa timur': 'jatim', 'jatim': 'jatim',
+  'banten': 'banten', 'bali': 'bali',
+  'nusa tenggara barat': 'ntb', 'ntb': 'ntb',
+  'nusa tenggara timur': 'ntt', 'ntt': 'ntt',
+  'kalimantan barat': 'kalbar', 'kalbar': 'kalbar',
+  'kalimantan tengah': 'kalteng', 'kalteng': 'kalteng',
+  'kalimantan selatan': 'kalsel', 'kalsel': 'kalsel',
+  'kalimantan timur': 'kaltim', 'kaltim': 'kaltim',
+  'kalimantan utara': 'kalut', 'kalut': 'kalut',
+  'sulawesi utara': 'sulut', 'sulut': 'sulut',
+  'sulawesi tengah': 'sulteng', 'sulteng': 'sulteng',
+  'sulawesi selatan': 'sulsel', 'sulsel': 'sulsel',
+  'sulawesi tenggara': 'sultra', 'sultra': 'sultra',
+  'gorontalo': 'gorontalo',
+  'sulawesi barat': 'sulbar', 'sulbar': 'sulbar',
+  'maluku': 'maluku',
+  'maluku utara': 'malut', 'malut': 'malut',
+  'papua barat': 'papbar', 'papbar': 'papbar',
+  'papua': 'papua',
+};
+
+const KNOWN_PROVINSI = [
+  { id: 'aceh', nama: 'Aceh', pop: 5.27 },
+  { id: 'sumut', nama: 'Sumatera Utara', pop: 14.79 },
+  { id: 'sumbar', nama: 'Sumatera Barat', pop: 5.53 },
+  { id: 'riau', nama: 'Riau', pop: 6.59 },
+  { id: 'jambi', nama: 'Jambi', pop: 3.60 },
+  { id: 'sumsel', nama: 'Sumatera Selatan', pop: 8.47 },
+  { id: 'bengkulu', nama: 'Bengkulu', pop: 2.01 },
+  { id: 'lampung', nama: 'Lampung', pop: 9.01 },
+  { id: 'babel', nama: 'Kep. Bangka Belitung', pop: 1.43 },
+  { id: 'kepri', nama: 'Kepulauan Riau', pop: 2.16 },
+  { id: 'dki', nama: 'DKI Jakarta', pop: 10.56 },
+  { id: 'jabar', nama: 'Jawa Barat', pop: 49.32 },
+  { id: 'jateng', nama: 'Jawa Tengah', pop: 36.52 },
+  { id: 'diy', nama: 'DI Yogyakarta', pop: 3.76 },
+  { id: 'jatim', nama: 'Jawa Timur', pop: 40.67 },
+  { id: 'banten', nama: 'Banten', pop: 11.90 },
+  { id: 'bali', nama: 'Bali', pop: 4.32 },
+  { id: 'ntb', nama: 'Nusa Tenggara Barat', pop: 5.32 },
+  { id: 'ntt', nama: 'Nusa Tenggara Timur', pop: 5.33 },
+  { id: 'kalbar', nama: 'Kalimantan Barat', pop: 5.41 },
+  { id: 'kalteng', nama: 'Kalimantan Tengah', pop: 2.66 },
+  { id: 'kalsel', nama: 'Kalimantan Selatan', pop: 4.23 },
+  { id: 'kaltim', nama: 'Kalimantan Timur', pop: 3.77 },
+  { id: 'kalut', nama: 'Kalimantan Utara', pop: 0.72 },
+  { id: 'sulut', nama: 'Sulawesi Utara', pop: 2.62 },
+  { id: 'sulteng', nama: 'Sulawesi Tengah', pop: 2.98 },
+  { id: 'sulsel', nama: 'Sulawesi Selatan', pop: 9.07 },
+  { id: 'sultra', nama: 'Sulawesi Tenggara', pop: 2.62 },
+  { id: 'gorontalo', nama: 'Gorontalo', pop: 1.18 },
+  { id: 'sulbar', nama: 'Sulawesi Barat', pop: 1.42 },
+  { id: 'maluku', nama: 'Maluku', pop: 1.85 },
+  { id: 'malut', nama: 'Maluku Utara', pop: 1.28 },
+  { id: 'papbar', nama: 'Papua Barat', pop: 1.13 },
+  { id: 'papua', nama: 'Papua', pop: 4.31 },
+];
+
+function normProv(s) {
+  return PROVINSI_ID_MAP[String(s).toLowerCase().trim()] || null;
+}
+
+function normJenis(s) {
+  const k = String(s).toLowerCase().trim();
+  if (JENIS_MAP[k]) return JENIS_MAP[k];
+  const found = Object.keys(JENIS_MAP).find(m => k.includes(m));
+  return found ? JENIS_MAP[found] : null;
+}
+
+function onDragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('over'); }
+function onDragLeave(id) { document.getElementById(id).classList.remove('over'); }
+function onDrop(e, type) {
+  e.preventDefault();
+  const id = type === 'prov' ? 'dz-prov' : 'dz-kota';
+  document.getElementById(id).classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file, type);
+}
+function onFileSelect(e, type) {
+  const file = e.target.files[0];
+  if (file) readFile(file, type);
+}
+
+function readFile(file, type) {
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const wb = XLSX.read(evt.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (!rows.length) return setStatus('File kosong.', true);
+    const headers = rows[0].map(h => String(h || '').trim());
+    parsed[type] = { headers, rows: rows.slice(1).filter(r => r.some(c => c != null && c !== '')) };
+    updateDropZone(type, file.name, parsed[type].rows.length);
+    showColumnMapper(type, headers);
+    showPreview(type, headers, parsed[type].rows.slice(0, 5));
+    autoDetectColumns(type, headers);
+    document.getElementById('btn-generate').classList.add('visible');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function updateDropZone(type, name, count) {
+  const id = type === 'prov' ? 'dz-prov' : 'dz-kota';
+  document.getElementById(id).classList.add('loaded');
+  document.getElementById(id + '-lbl').textContent = `✅ ${name} — ${count} baris`;
+}
+
+function showColumnMapper(type, headers) {
+  const mapId = type === 'prov' ? 'map-prov' : 'map-kota';
+  document.getElementById(mapId).classList.add('visible');
+  const prefix = type === 'prov' ? 'm-prov' : 'm-kota';
+  const selIds = type === 'prov' ? ['provinsi', 'tahun', 'jenis', 'jumlah'] : ['satker', 'provinsi', 'tahun', 'jenis', 'jumlah'];
+  selIds.forEach(sid => {
+    const sel = document.getElementById(prefix + '-' + sid);
+    sel.innerHTML = '<option value="">— pilih kolom —</option>' +
+      headers.map((h, i) => `<option value="${i}">${h}</option>`).join('');
+  });
+}
+
+function showPreview(type, headers, rows) {
+  const id = type === 'prov' ? 'preview-prov' : 'preview-kota';
+  document.getElementById(id).innerHTML = '<table><thead><tr>' +
+    headers.map(h => `<th>${h}</th>`).join('') +
+    '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + headers.map((_, i) => `<td>${r[i] ?? ''}</td>`).join('') + '</tr>').join('') +
+    '</tbody></table>';
+}
+
+function autoDetectColumns(type, headers) {
+  const prefix = type === 'prov' ? 'm-prov' : 'm-kota';
+  const patterns = {
+    provinsi: /provinsi|province/i,
+    tahun: /tahun|year/i,
+    jenis: /jenis|kasus|type|perkara/i,
+    jumlah: /jumlah|total|count|angka/i,
+    satker: /satker|satuan kerja|pengadilan|kota|kabupaten|wilayah/i,
+  };
+  Object.entries(patterns).forEach(([key, re]) => {
+    const sel = document.getElementById(prefix + '-' + key);
+    if (!sel) return;
+    const idx = headers.findIndex(h => re.test(h));
+    if (idx >= 0) sel.value = String(idx);
+  });
+}
+
+function getColIdx(prefix, key) {
+  const sel = document.getElementById(prefix + '-' + key);
+  return sel && sel.value !== '' ? +sel.value : null;
+}
+
+function generate() {
+  setStatus('');
+  if (!parsed.prov) return setStatus('Upload file provinsi terlebih dahulu.', true);
+
+  const pi = {
+    provinsi: getColIdx('m-prov', 'provinsi'),
+    tahun: getColIdx('m-prov', 'tahun'),
+    jenis: getColIdx('m-prov', 'jenis'),
+    jumlah: getColIdx('m-prov', 'jumlah'),
+  };
+  if (Object.values(pi).some(v => v === null))
+    return setStatus('Petakan semua 4 kolom untuk file provinsi.', true);
+
+  const provMap = {};
+  const tahunSet = new Set();
+  let skipped = 0;
+
+  parsed.prov.rows.forEach(row => {
+    const provId = normProv(row[pi.provinsi]);
+    const tahunRaw = +row[pi.tahun];
+    const jenisId = normJenis(row[pi.jenis]);
+    const jumlahRaw = +row[pi.jumlah];
+    if (!provId || !jenisId || isNaN(tahunRaw) || isNaN(jumlahRaw)) { skipped++; return; }
+    tahunSet.add(tahunRaw);
+    if (!provMap[provId]) provMap[provId] = { tahunan: {} };
+    if (!provMap[provId].tahunan[tahunRaw]) provMap[provId].tahunan[tahunRaw] = {};
+    provMap[provId].tahunan[tahunRaw][jenisId] = (provMap[provId].tahunan[tahunRaw][jenisId] || 0) + jumlahRaw;
+  });
+
+  if (!Object.keys(provMap).length)
+    return setStatus('Tidak ada data yang berhasil diparsing. Periksa pemetaan kolom.', true);
+
+  const kotaMap = {};
+  if (parsed.kota) {
+    const ki = {
+      satker: getColIdx('m-kota', 'satker'),
+      provinsi: getColIdx('m-kota', 'provinsi'),
+      tahun: getColIdx('m-kota', 'tahun'),
+      jenis: getColIdx('m-kota', 'jenis'),
+      jumlah: getColIdx('m-kota', 'jumlah'),
+    };
+    if (Object.values(ki).every(v => v !== null)) {
+      parsed.kota.rows.forEach(row => {
+        const satker = String(row[ki.satker] || '').trim();
+        const provId = normProv(row[ki.provinsi]);
+        const tahunRaw = +row[ki.tahun];
+        const jenisId = normJenis(row[ki.jenis]);
+        const jumlahRaw = +row[ki.jumlah];
+        if (!satker || !provId || !jenisId || isNaN(tahunRaw) || isNaN(jumlahRaw)) return;
+        if (!kotaMap[provId]) kotaMap[provId] = {};
+        if (!kotaMap[provId][satker]) kotaMap[provId][satker] = { tahunan: {} };
+        if (!kotaMap[provId][satker].tahunan[tahunRaw]) kotaMap[provId][satker].tahunan[tahunRaw] = {};
+        kotaMap[provId][satker].tahunan[tahunRaw][jenisId] = (kotaMap[provId][satker].tahunan[tahunRaw][jenisId] || 0) + jumlahRaw;
+      });
+    }
+  }
+
+  const TAHUN = [...tahunSet].sort((a, b) => a - b);
+  const lines = [
+    '// Data Real — Statistik Pengadilan Agama Indonesia',
+    '// Dikonversi dari Excel BPS/Badilag menggunakan convert.html',
+    `// Tahun: ${TAHUN.join(', ')}`,
+    '(function() {',
+    '',
+    `const TAHUN = ${JSON.stringify(TAHUN)};`,
+    '',
+    `const JENIS_KASUS = ${JSON.stringify(JENIS_KASUS_DEFS, null, 2)};`,
+    '',
+    'const PROVINSI_DATA = ' + JSON.stringify(KNOWN_PROVINSI.filter(p => provMap[p.id]), null, 2) + ';',
+    '',
+    'const DATA = {',
+  ];
+
+  KNOWN_PROVINSI.filter(p => provMap[p.id]).forEach(p => {
+    const kotaEntries = kotaMap[p.id]
+      ? Object.entries(kotaMap[p.id]).map(([nama, d]) => `      ${JSON.stringify(nama)}: { tahunan: ${JSON.stringify(d.tahunan)} }`)
+      : [];
+    lines.push(`  ${JSON.stringify(p.id)}: {`);
+    lines.push(`    id: ${JSON.stringify(p.id)}, nama: ${JSON.stringify(p.nama)}, pop: ${p.pop},`);
+    lines.push(`    tahunan: ${JSON.stringify(provMap[p.id].tahunan)},`);
+    lines.push(kotaEntries.length ? `    kota: {\n${kotaEntries.join(',\n')}\n    },` : '    kota: {},');
+    lines.push('  },');
+  });
+
+  lines.push('};', '',
+    'function totalProvinsiTahun(data, provId, tahun) {\n  const t = data[provId]?.tahunan[tahun];\n  if (!t) return 0;\n  return Object.values(t).reduce((s,v) => s+v, 0);\n}',
+    'function totalNasionalTahun(data, tahun) {\n  return PROVINSI_DATA.reduce((s,p) => s + totalProvinsiTahun(data, p.id, tahun), 0);\n}',
+    'function totalJenisTahun(data, jenisId, tahun) {\n  return PROVINSI_DATA.reduce((s,p) => s + (data[p.id]?.tahunan[tahun]?.[jenisId] || 0), 0);\n}',
+    '',
+    'window.STATISTIK = { DATA, TAHUN, JENIS_KASUS, PROVINSI_DATA, totalProvinsiTahun, totalNasionalTahun, totalJenisTahun };',
+    '})();'
+  );
+
+  document.getElementById('output-area').value = lines.join('\n');
+  document.getElementById('output-section').classList.add('visible');
+  document.getElementById('output-section').scrollIntoView({ behavior: 'smooth' });
+
+  setStatus(`✅ Berhasil! ${Object.keys(provMap).length} provinsi, ${TAHUN.length} tahun (${TAHUN[0]}–${TAHUN[TAHUN.length - 1]}).` +
+    (skipped ? ` ${skipped} baris dilewati.` : '') +
+    (Object.keys(kotaMap).length ? ` Data kota: ${Object.keys(kotaMap).length} provinsi.` : ''));
+}
+
+function copyOutput() {
+  const ta = document.getElementById('output-area');
+  ta.select();
+  document.execCommand('copy');
+  document.getElementById('copy-status').textContent = '✅ Disalin ke clipboard!';
+  setTimeout(() => document.getElementById('copy-status').textContent = '', 2500);
+}
+
+function setStatus(msg, isError = false) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (isError ? ' error' : '');
+}
+</script>
+</body>
+</html>
